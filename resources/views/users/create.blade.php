@@ -73,4 +73,15 @@
         </form>
     </div>
 </div>
+@endsection
+
+@section('js')
+<script>
+    $(document).ready(function() {
+        // Select2 initialized
+        $('.select2').select2({
+            theme: 'bootstrap4'
+        });
+    });
+</script>
 @endsection 

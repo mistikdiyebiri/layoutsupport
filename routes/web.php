@@ -13,11 +13,16 @@ use App\Http\Controllers\CannedResponseController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\StaffTicketController;
 
 // Ana sayfa
 Route::get('/', function () {
     return redirect()->route('login');
 });
+
+// Home sayfası
+Route::get('/home', [HomeController::class, 'index'])->name('home');
 
 // Kimlik doğrulama rotaları
 Auth::routes();
@@ -93,9 +98,6 @@ Route::middleware(['auth'])->group(function () {
         // Rol yönetimi (Sadece admin)
         Route::resource('roles', RoleController::class);
         
-        // Hazır yanıt yönetimi (Sadece admin)
-        Route::resource('canned-responses', CannedResponseController::class);
-        
         // Müşteri toplu işlemleri ve import (users altında)
         Route::put('/users/{user}/toggle-status', [CustomerController::class, 'toggleStatus'])
             ->name('users.toggle-status');
@@ -116,8 +118,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/reports', [DashboardController::class, 'reports'])->name('reports');
     });
     
+    // Hazır yanıt yönetimi (Admin ve personel)
+    Route::middleware(['role:admin|staff|teknik destek'])->group(function () {
+        Route::resource('canned-responses', CannedResponseController::class);
+    });
+    
     // Hazır yanıt API'leri (Admin ve personel)
-    Route::middleware(['role:admin|staff'])->group(function () {
+    Route::middleware(['role:admin|staff|teknik destek'])->group(function () {
         Route::get('/api/canned-responses', [CannedResponseController::class, 'getActiveResponses'])->name('api.canned-responses');
         Route::get('/api/canned-responses/{cannedResponse}', [CannedResponseController::class, 'getResponse'])->name('api.canned-responses.get');
     });
@@ -132,12 +139,27 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.markAllAsRead');
 
     // Personel erişimli rotalar (staff ve teknik destek rolü olanlar)
-    Route::middleware(['role:staff|teknik destek'])->group(function () {
-        // Personel için atanan biletler listesi
-        Route::get('/tickets/assigned', [TicketController::class, 'assignedTickets'])->name('tickets.assigned');
+    Route::middleware(['role:staff|teknik destek|admin'])->group(function () {
+        // Personel Bilet Yönetimi için Özel Rotalar
+        Route::prefix('staff')->name('staff.')->group(function() {
+            // Bilet listeleme sayfaları
+            Route::get('/tickets/pending', [StaffTicketController::class, 'pendingTickets'])->name('tickets.pending');
+            Route::get('/tickets/assigned', [StaffTicketController::class, 'assignedTickets'])->name('tickets.assigned');
+            Route::get('/tickets/department', [StaffTicketController::class, 'departmentTickets'])->name('tickets.department');
+            
+            // Bilet görüntüleme ve işlemler
+            Route::get('/tickets/{id}', [StaffTicketController::class, 'showTicket'])->name('tickets.show');
+            Route::post('/tickets/{id}/reply', [StaffTicketController::class, 'addReply'])->name('tickets.reply');
+            Route::post('/tickets/{id}/status', [StaffTicketController::class, 'updateStatus'])->name('tickets.update-status');
+            Route::post('/tickets/{id}/transfer', [StaffTicketController::class, 'transferTicket'])->name('tickets.transfer');
+            Route::post('/tickets/{id}/assign-to-me', [StaffTicketController::class, 'assignToMe'])->name('tickets.assign-to-me');
+            
+            // Personel raporları
+            Route::get('/reports/performance', [StaffTicketController::class, 'performanceReport'])->name('reports.performance');
+        });
         
-        // Hazır yanıt yönetimi (personel de kullanabilsin)
-        Route::resource('canned-responses', CannedResponseController::class);
+        // Eski rotalar (geçiş süreci için)
+        Route::get('/tickets/assigned', [TicketController::class, 'assignedTickets'])->name('tickets.assigned');
         
         // Performans raporu erişimi
         Route::get('/staff/reports/performance', [DashboardController::class, 'staffPerformanceReport'])->name('staff.reports.performance');
@@ -145,8 +167,8 @@ Route::middleware(['auth'])->group(function () {
 
     // Personel bilet rotaları
     Route::middleware(['auth', 'role:staff,admin,teknik destek'])->group(function () {
-        Route::get('/tickets/assigned', [TicketController::class, 'assignedTickets'])->name('tickets.assigned');
-        Route::post('/tickets/{ticket}/transfer', [TicketController::class, 'transfer'])->name('tickets.transfer');
+        Route::post('/tickets/{ticket}/transfer', [TicketController::class, 'transfer'])->name('tickets.transfer')
+            ->middleware('can:bilet.duzenleme.tumu');
     });
 });
 
@@ -194,6 +216,3 @@ Route::middleware(['auth'])->group(function () {
     Route::post('notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
     Route::get('api/notifications/unread', [NotificationController::class, 'getUnreadNotifications'])->name('api.notifications.unread');
 });
-
-// Eski ana sayfa yönlendirmesi
-Route::redirect('/home', '/dashboard');

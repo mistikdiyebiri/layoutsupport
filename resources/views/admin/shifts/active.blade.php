@@ -69,7 +69,7 @@
                                              style="width: 30px; height: 30px; margin-right: 10px;">
                                         {{ $user->name }}
                                     </td>
-                                    <td>{{ $user->department->name ?? 'Atanmamış' }}</td>
+                                    <td>{{ $user->primaryDepartment->name ?? 'Atanmamış' }}</td>
                                     <td>
                                         <i class="far fa-clock text-primary"></i> 
                                         {{ $user->shift_start }} - {{ $user->shift_end }}

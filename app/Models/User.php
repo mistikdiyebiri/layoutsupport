@@ -217,4 +217,12 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Department::class, 'department_user');
     }
+    
+    /**
+     * Kullanıcının ana departmanı
+     */
+    public function primaryDepartment()
+    {
+        return $this->belongsTo(Department::class, 'department_id');
+    }
 }

@@ -65,20 +65,37 @@
                         </div>
 
                         <div class="form-group mb-3">
-                            <label for="role">Rol <span class="text-danger">*</span></label>
-                            <select name="role" id="role" class="form-control @error('role') is-invalid @enderror" required>
-                                <option value="">Seçin...</option>
+                            <label for="roles">Rol <span class="text-danger">*</span></label>
+                            <select name="roles[]" id="roles" class="form-control @error('roles') is-invalid @enderror" required multiple>
                                 @foreach($roles as $role)
-                                    <option value="{{ $role->name }}" {{ old('role') == $role->name ? 'selected' : '' }}>
+                                    <option value="{{ $role->id }}" {{ old('roles') && in_array($role->id, old('roles', [])) ? 'selected' : '' }}>
                                         {{ ucfirst($role->name) }}
                                     </option>
                                 @endforeach
                             </select>
-                            @error('role')
+                            @error('roles')
                                 <span class="invalid-feedback" role="alert">
                                     <strong>{{ $message }}</strong>
                                 </span>
                             @enderror
+                            <small class="form-text text-muted">Ctrl tuşuna basarak birden fazla rol seçebilirsiniz.</small>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="departments">Departmanlar</label>
+                            <select name="departments[]" id="departments" class="form-control @error('departments') is-invalid @enderror" multiple>
+                                @foreach($departments as $department)
+                                    <option value="{{ $department->id }}" {{ old('departments') && in_array($department->id, old('departments', [])) ? 'selected' : '' }}>
+                                        {{ $department->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('departments')
+                                <span class="invalid-feedback" role="alert">
+                                    <strong>{{ $message }}</strong>
+                                </span>
+                            @enderror
+                            <small class="form-text text-muted">Personelin çalışabileceği departmanları seçin. Ctrl tuşuna basarak birden fazla departman seçebilirsiniz.</small>
                         </div>
 
                         <div class="form-group mb-3">
@@ -106,6 +123,31 @@
                                 <input class="form-check-input" type="checkbox" name="is_active" value="1" id="is_active" checked>
                                 <label class="form-check-label" for="is_active">Aktif Hesap</label>
                             </div>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label>Mesai Saatleri</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="shift_start">Başlangıç</label>
+                                    <input type="time" id="shift_start" name="shift_start" class="form-control @error('shift_start') is-invalid @enderror" value="{{ old('shift_start') }}">
+                                    @error('shift_start')
+                                        <span class="invalid-feedback" role="alert">
+                                            <strong>{{ $message }}</strong>
+                                        </span>
+                                    @enderror
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="shift_end">Bitiş</label>
+                                    <input type="time" id="shift_end" name="shift_end" class="form-control @error('shift_end') is-invalid @enderror" value="{{ old('shift_end') }}">
+                                    @error('shift_end')
+                                        <span class="invalid-feedback" role="alert">
+                                            <strong>{{ $message }}</strong>
+                                        </span>
+                                    @enderror
+                                </div>
+                            </div>
+                            <small class="form-text text-muted">Personelin çalışma saatlerini belirtin. Boş bırakırsanız mesai kontrolü yapılmaz.</small>
                         </div>
 
                         <div class="form-group">

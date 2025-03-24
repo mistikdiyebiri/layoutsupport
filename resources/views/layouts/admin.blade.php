@@ -58,14 +58,15 @@
     <aside class="main-sidebar sidebar-dark-primary elevation-4">
         <!-- Brand Logo -->
         <a href="{{ route('dashboard') }}" class="brand-link">
-            <span class="brand-text font-weight-light">{{ config('app.name', 'Laravel') }}</span>
+            <img src="https://i.imgur.com/3yJc8IZ.png" alt="Pazmanya Logo" class="brand-image" style="max-height: 36px; margin-left: 0.8rem; margin-right: 0.5rem; background-color: #fff; padding: 3px; border-radius: 4px;">
+            <span class="brand-text font-weight-light" style="opacity: 0;">Pazmanya</span>
         </a>
 
         <!-- Sidebar -->
         <div class="sidebar">
             <!-- Sidebar user panel (optional) -->
             <!-- Kullanıcı paneli kaldırıldı - menü daha sade olması için -->
-            
+
             <!-- Sidebar Menu -->
             <nav class="mt-2">
                 <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
@@ -88,7 +89,7 @@
                             <li class="nav-item">
                                 <a href="{{ route('tickets.index') }}" class="nav-link {{ request()->routeIs('tickets.index') ? 'active' : '' }}">
                                     <i class="nav-icon fas fa-list"></i>
-                                    <p>Tüm Ticketlar</p>
+                            <p>Tüm Ticketlar</p>
                                 </a>
                             </li>
                         </ul>
@@ -151,9 +152,9 @@
                             </p>
                         </a>
                         <ul class="nav nav-treeview">
-                            <li class="nav-item">
+                    <li class="nav-item">
                                 <a href="{{ route('customers.index') }}" class="nav-link {{ request()->routeIs('customers.index') ? 'active' : '' }}">
-                                    <i class="nav-icon fas fa-users"></i>
+                            <i class="nav-icon fas fa-users"></i>
                                     <p>Personeller</p>
                                 </a>
                             </li>
@@ -203,9 +204,9 @@
                                 <a href="{{ route('admin.notifications.index') }}" class="nav-link {{ request()->routeIs('admin.notifications.index') ? 'active' : '' }}">
                                     <i class="nav-icon fas fa-bell"></i>
                                     <p>Bildirimler</p>
-                                </a>
-                            </li>
-                            <li class="nav-item">
+                        </a>
+                    </li>
+                    <li class="nav-item">
                                 <a href="{{ route('admin.notifications.create') }}" class="nav-link {{ request()->routeIs('admin.notifications.create') ? 'active' : '' }}">
                                     <i class="nav-icon fas fa-plus-circle"></i>
                                     <p>Yeni Bildirim</p>
@@ -265,7 +266,7 @@
                                     <p>Atama Kuralları</p>
                                 </a>
                             </li>
-                            <li class="nav-item">
+                    <li class="nav-item">
                                 <a href="{{ route('admin.assignments.unassigned') }}" class="nav-link {{ request()->routeIs('admin.assignments.unassigned') ? 'active' : '' }}">
                                     <i class="nav-icon fas fa-inbox"></i>
                                     <p>Atanmamış Görevler</p>

@@ -44,7 +44,14 @@ class TicketReplyController extends Controller
         if ($isStaffReply) {
             $this->markPreviousCustomerRepliesAsAnswered($ticket);
             
-            // Ticket durumunu güncelle - müşteri yanıt verene kadar beklemede (pending)
+            // Yanıt sonrası kapatma isteği var mı kontrol et
+            if ($request->has('close_after_reply') && $ticket->status !== 'closed') {
+                $ticket->update(['status' => 'closed']);
+                return redirect()->route('tickets.show', $ticket)
+                    ->with('success', 'Cevabınız gönderildi ve bilet kapatıldı.');
+            }
+            
+            // Normal işlem - cevap sonrası ticket beklemede
             if ($ticket->status !== 'closed') {
                 $ticket->update(['status' => 'pending']);
             }

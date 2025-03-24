@@ -13,7 +13,19 @@ use Carbon\Carbon;
 class DashboardController extends Controller
 {
     /**
-     * Kullanıcı rolüne göre doğru dashboard'ı göster
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->middleware('auth');
+    }
+
+    /**
+     * Show the appropriate dashboard based on user role.
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
      */
     public function index()
     {
@@ -21,7 +33,7 @@ class DashboardController extends Controller
         
         if ($user->hasRole('admin')) {
             return $this->adminDashboard();
-        } elseif ($user->hasRole('staff') || $user->hasRole('teknik destek')) {
+        } elseif ($user->hasRole(['staff', 'teknik destek'])) {
             return $this->staffDashboard();
         } else {
             return $this->customerDashboard();
@@ -29,163 +41,252 @@ class DashboardController extends Controller
     }
     
     /**
-     * Admin dashboard'ı
+     * Admin dashboard
+     * 
+     * @return \Illuminate\Contracts\Support\Renderable
      */
     private function adminDashboard()
     {
-        // Toplam destek talebi sayısı
-        $totalTicketCount = Ticket::count();
+        // Son eklenen biletler
+        $latestTickets = Ticket::with(['user', 'department', 'assignedTo'])
+                        ->orderBy('created_at', 'desc')
+                        ->take(5)
+                        ->get();
         
-        // Kapalı destek talebi sayısı
-        $totalClosedTicketCount = Ticket::where('status', 'closed')->count();
+        // Destek talebi istatistikleri
+        $totalTickets = Ticket::count();
+        $totalTicketCount = $totalTickets;
+        $openTickets = Ticket::where('status', 'open')->count();
+        $pendingTickets = Ticket::where('status', 'pending')->count();
+        $closedTickets = Ticket::where('status', 'closed')->count();
+        $totalClosedTicketCount = $closedTickets;
         
-        // Açık destek talebi sayısı
-        $totalOpenTicketCount = Ticket::where('status', 'open')->count();
-        
-        // Bekleyen destek talebi sayısı
-        $totalPendingTicketCount = Ticket::where('status', 'pending')->count();
-        
-        // Atanmamış destek talebi sayısı
+        // Atanmamış biletlerin sayısını hesapla
         $unassignedTicketCount = Ticket::whereNull('assigned_to')->count();
         
-        // Müşteri sayısı
-        $customerCount = User::where('role', 'customer')->count();
+        // Son 30 günlük talep trendi için tarih aralığı
+        $last30Days = [];
+        for ($i = 29; $i >= 0; $i--) {
+            $date = Carbon::now()->subDays($i)->format('Y-m-d');
+            $last30Days[$date] = 0;
+        }
         
-        // Son 5 talep
-        $latestTickets = Ticket::with(['user', 'department'])->latest()->take(5)->get();
-        
-        // Departman istatistikleri
-        $departmentStats = Department::withCount('tickets')->get();
-        
-        // Personel istatistikleri (en çok ticket'a sahip olan ve en çok yanıtlayan)
-        $staffStats = User::whereHas('roles', function($query) {
-                $query->whereIn('name', ['staff', 'teknik destek']);
-            })
-            ->withCount(['assignedTickets', 'ticketReplies'])
-            ->orderByDesc('assigned_tickets_count')
-            ->take(5)
-            ->get();
-            
-        // Aktif mesaide olan personeller
-        $activeStaff = User::whereHas('roles', function($query) {
-                $query->whereIn('name', ['staff', 'teknik destek']);
-            })
-            ->inShift()
-            ->get();
-            
-        // Departman bazlı yoğunluk
-        $departmentLoad = Department::withCount(['tickets as open_tickets_count' => function ($query) {
-                $query->where('status', 'open');
-            }])
-            ->withCount(['tickets as unassigned_tickets_count' => function ($query) {
-                $query->whereNull('assigned_to');
-            }])
-            ->get();
-        
-        // Son 30 gün için talep trendi
-        $dateRange = [];
-        $startDate = now()->subDays(29);
-        $endDate = now();
-        
-        // Veritabanından son 30 günlük ticket sayılarını al
-        $ticketsByDate = Ticket::selectRaw('DATE(created_at) as date, COUNT(*) as count')
-            ->whereBetween('created_at', [$startDate, $endDate])
+        // Son 30 günlük biletleri getir
+        $ticketsLast30Days = Ticket::where('created_at', '>=', Carbon::now()->subDays(30))
+            ->selectRaw('DATE(created_at) as date, COUNT(*) as count')
             ->groupBy('date')
             ->pluck('count', 'date')
             ->toArray();
+            
+        // Birleştir
+        $dateRange = array_merge($last30Days, $ticketsLast30Days);
         
-        // Boş günleri doldur ve sırala
-        for ($date = clone $startDate; $date <= $endDate; $date->addDay()) {
-            $dateKey = $date->format('Y-m-d');
-            $dateRange[$dateKey] = $ticketsByDate[$dateKey] ?? 0;
-        }
+        // Departman yoğunluk verileri
+        $departmentLoad = Department::withCount(['tickets as open_tickets_count' => function($q) {
+                $q->where('status', 'open');
+            }])
+            ->withCount(['tickets as unassigned_tickets_count' => function($q) {
+                $q->whereNull('assigned_to');
+            }])
+            ->withCount(['users as active_staff_count' => function($q) {
+                $q->whereHas('roles', function($query) {
+                    $query->whereIn('name', ['staff', 'teknik destek']);
+                });
+            }])
+            ->get();
+        
+        // Departman istatistikleri
+        $departmentStats = Department::withCount(['tickets as total_tickets', 
+                                          'tickets as open_tickets' => function ($query) {
+                                              $query->where('status', 'open');
+                                          },
+                                          'tickets as pending_tickets' => function ($query) {
+                                              $query->where('status', 'pending');
+                                          }])
+                                    ->where('is_active', true)
+                                    ->get();
+        
+        // Kullanıcı istatistikleri
+        $totalUsers = User::count();
+        $staffCount = User::role(['staff', 'teknik destek'])->count();
+        $customerCount = User::role('customer')->count();
+        
+        // Personel istatistikleri
+        $staffStats = User::role(['staff', 'teknik destek'])
+                    ->withCount(['assignedTickets as tickets_count', 'ticketReplies as ticket_replies_count'])
+                    ->orderByDesc('tickets_count')
+                    ->take(6)
+                    ->get();
+                    
+        // Aktif personel listesi
+        $activeStaff = User::role(['staff', 'teknik destek'])
+                   ->withCount(['assignedTickets as active_assigned_tickets_count' => function($q) {
+                       $q->whereIn('status', ['open', 'pending']);
+                   }])
+                   ->orderByDesc('active_assigned_tickets_count')
+                   ->take(10)
+                   ->get();
+                   
+        // ActiveAssignedTicketCount metodu olduğu için bu metodu ekleyelim
+        $activeStaff->map(function($user) {
+            $user->setAppends(['shift_start', 'shift_end']);
+            $user->shift_start = null;
+            $user->shift_end = null;
+            return $user;
+        });
+        
+        // Metot ekleyelim
+        User::macro('activeAssignedTicketCount', function() {
+            return $this->active_assigned_tickets_count ?? 0;
+        });
         
         return view('admin.dashboard', compact(
-            'totalTicketCount', 
-            'totalClosedTicketCount', 
-            'totalOpenTicketCount',
-            'totalPendingTicketCount',
-            'unassignedTicketCount',
-            'customerCount', 
             'latestTickets', 
-            'departmentStats', 
+            'totalTickets',
+            'openTickets',
+            'pendingTickets',
+            'closedTickets',
+            'departmentStats',
+            'totalUsers',
+            'staffCount',
+            'customerCount',
+            'totalTicketCount',
+            'unassignedTicketCount',
             'staffStats',
             'dateRange',
-            'activeStaff',
-            'departmentLoad'
+            'departmentLoad',
+            'activeStaff'
         ));
     }
     
     /**
-     * Personel dashboard'ı
+     * Staff dashboard
+     * 
+     * @return \Illuminate\Contracts\Support\Renderable
      */
     private function staffDashboard()
     {
         $user = Auth::user();
         
-        // Genel istatistikler
-        $totalTicketCount = Ticket::count();
-        $totalOpenTicketCount = Ticket::where('status', 'open')->count();
-        $totalPendingTicketCount = Ticket::where('status', 'pending')->count();
-        $totalClosedTicketCount = Ticket::where('status', 'closed')->count();
+        // Departman bilgisini al
+        $departmentIds = DB::table('department_user')->where('user_id', $user->id)->pluck('department_id');
+        $departmentInfo = null;
         
-        // Atanan ticketlar
-        $latestAssignedTickets = Ticket::where('assigned_to', $user->id)
-            ->with(['user', 'department'])
-            ->latest()
-            ->take(5)
-            ->get();
-            
+        if ($departmentIds->isNotEmpty()) {
+            $departmentInfo = Department::whereIn('id', $departmentIds)->first();
+        }
+        
+        // Size atanan biletler
         $assignedTickets = Ticket::where('assigned_to', $user->id)->count();
-        $assignedOpenTickets = Ticket::where('assigned_to', $user->id)->where('status', 'open')->count();
-        $pendingAssignedCount = Ticket::where('assigned_to', $user->id)->where('status', 'pending')->count();
-        $closedAssignedCount = Ticket::where('assigned_to', $user->id)->where('status', 'closed')->count();
+        $assignedOpenTickets = Ticket::where('assigned_to', $user->id)
+                            ->where('status', 'open')
+                            ->count();
+        $closedAssignedCount = Ticket::where('assigned_to', $user->id)
+                            ->where('status', 'closed')
+                            ->count();
         
-        // Son eklenen ticketlar
-        $latestTickets = Ticket::with(['user', 'department'])
-            ->latest()
-            ->take(5)
-            ->get();
+        // Tüm bilet sayısı
+        $totalTicketCount = Ticket::count();
+        
+        // Personelin bekleyen yanıtları (müşteriden gelen ve cevaplanmamış olanlar)
+        $pendingRepliesCount = Ticket::where('assigned_to', $user->id)
+                           ->where('status', 'open')
+                           ->whereHas('replies', function($q) {
+                               $q->where('is_staff_reply', false)
+                                 ->whereNull('replied_at');
+                           })
+                           ->count();
+        
+        // Dashboard'da gösterilecek bekleyen talepler
+        $pendingReplies = Ticket::where('assigned_to', $user->id)
+                        ->where('status', 'open')
+                        ->whereHas('replies', function($q) {
+                            $q->where('is_staff_reply', false)
+                              ->whereNull('replied_at');
+                        })
+                        ->with(['user', 'replies' => function($q) {
+                            $q->orderBy('created_at', 'desc');
+                        }])
+                        ->orderByRaw("CASE 
+                            WHEN priority = 'high' THEN 1 
+                            WHEN priority = 'medium' THEN 2 
+                            WHEN priority = 'low' THEN 3 
+                            ELSE 4 END")
+                        ->orderBy('created_at', 'asc')
+                        ->take(5)
+                        ->get();
+        
+        // Son eklenen biletler
+        $latestTickets = Ticket::when($departmentIds->isNotEmpty(), function($q) use ($departmentIds) {
+                            return $q->whereIn('department_id', $departmentIds);
+                        })
+                        ->with(['user', 'assignedTo'])
+                        ->orderBy('created_at', 'desc')
+                        ->take(5)
+                        ->get();
+        
+        // Son atanan biletler
+        $latestAssignedTickets = Ticket::where('assigned_to', $user->id)
+                              ->with(['user', 'department'])
+                              ->orderBy('created_at', 'desc')
+                              ->take(5)
+                              ->get();
         
         return view('staff.dashboard', compact(
-            'totalTicketCount',
-            'totalOpenTicketCount',
-            'totalPendingTicketCount',
-            'totalClosedTicketCount',
-            'latestAssignedTickets',
+            'departmentInfo',
             'assignedTickets',
             'assignedOpenTickets',
-            'pendingAssignedCount',
             'closedAssignedCount',
-            'latestTickets'
+            'totalTicketCount',
+            'latestTickets',
+            'latestAssignedTickets',
+            'pendingRepliesCount',
+            'pendingReplies'
         ));
     }
     
     /**
-     * Müşteri dashboard'ı
+     * Customer dashboard
+     * 
+     * @return \Illuminate\Contracts\Support\Renderable
      */
     private function customerDashboard()
     {
         $user = Auth::user();
         
-        // Kullanıcının ticketları
+        // Bilet sayıları
+        $totalTickets = Ticket::where('user_id', $user->id)->count();
+        $openTickets = Ticket::where('user_id', $user->id)
+                     ->where('status', 'open')
+                     ->count();
+        $pendingTickets = Ticket::where('user_id', $user->id)
+                     ->where('status', 'pending')
+                     ->count();
+        $closedTickets = Ticket::where('user_id', $user->id)
+                     ->where('status', 'closed')
+                     ->count();
+                     
+        // Son biletler
         $latestTickets = Ticket::where('user_id', $user->id)
-            ->with(['department'])
-            ->latest()
-            ->take(5)
-            ->get();
-            
-        $ticketCount = Ticket::where('user_id', $user->id)->count();
-        $openTicketCount = Ticket::where('user_id', $user->id)->where('status', 'open')->count();
-        $pendingTicketCount = Ticket::where('user_id', $user->id)->where('status', 'pending')->count();
-        $closedTicketCount = Ticket::where('user_id', $user->id)->where('status', 'closed')->count();
+                        ->with(['department', 'assignedTo'])
+                        ->orderBy('created_at', 'desc')
+                        ->take(5)
+                        ->get();
+                        
+        // Yanıt bekleyen biletler (personelin cevap verdiği ama müşterinin henüz yanıtlamadığı)
+        $pendingReplyTickets = Ticket::where('user_id', $user->id)
+                            ->where('status', 'pending')
+                            ->orderBy('updated_at', 'desc')
+                            ->take(5)
+                            ->get();
         
         return view('customer.dashboard', compact(
+            'totalTickets',
+            'openTickets',
+            'pendingTickets',
+            'closedTickets',
             'latestTickets',
-            'ticketCount',
-            'openTicketCount',
-            'pendingTicketCount',
-            'closedTicketCount'
+            'pendingReplyTickets'
         ));
     }
     

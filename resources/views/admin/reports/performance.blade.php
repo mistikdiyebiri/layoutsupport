@@ -68,7 +68,7 @@
                             @forelse($staffPerformance as $staff)
                             <tr>
                                 <td>{{ $staff->name }}</td>
-                                <td>{{ $staff->department->name ?? 'Belirtilmemiş' }}</td>
+                                <td>{{ $staff->primaryDepartment->name ?? 'Belirtilmemiş' }}</td>
                                 <td>{{ $staff->tickets_count }}</td>
                                 <td>{{ $staff->closed_count }}</td>
                                 <td>{{ $staff->replies_count }}</td>

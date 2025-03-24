@@ -74,4 +74,27 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
     ];
+
+    /**
+     * Debug middleware to log detailed route information
+     */
+    public function bootstrap()
+    {
+        parent::bootstrap();
+        
+        // Log auth information to help with debugging
+        if (config('app.debug')) {
+            $this->app['router']->matched(function ($route, $request) {
+                \Log::debug('Router matched', [
+                    'route' => $route->getName(),
+                    'action' => $route->getActionName(),
+                    'middleware' => $route->middleware(),
+                    'parameters' => $route->parameters(),
+                    'uri' => $request->path(),
+                    'method' => $request->method(),
+                    'auth' => auth()->check() ? auth()->id() : 'guest',
+                ]);
+            });
+        }
+    }
 } 

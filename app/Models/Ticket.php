@@ -92,6 +92,15 @@ class Ticket extends Model
     }
 
     /**
+     * Get the comments/notes for the ticket.
+     * Bilet ile ilgili dahili yorumlar/notlar
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(TicketReply::class)->where('is_private', true);
+    }
+
+    /**
      * Get the files for the ticket.
      */
     public function files(): HasMany

@@ -55,7 +55,7 @@
                         <td>{{ $user->name }}</td>
                         <td>{{ $user->email }}</td>
                         <td>{{ $user->phone ?? '-' }}</td>
-                        <td>{{ $user->department->name ?? '-' }}</td>
+                        <td>{{ $user->primaryDepartment->name ?? '-' }}</td>
                         <td>
                             <span class="badge {{ $user->is_active ? 'badge-success' : 'badge-danger' }}">
                                 {{ $user->is_active ? 'Aktif' : 'Pasif' }}

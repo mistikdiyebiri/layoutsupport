@@ -36,16 +36,16 @@ class CannedResponseController extends Controller
     {
         $request->validate([
             'title' => 'required|string|max:255',
-            'body' => 'required|string',
+            'message' => 'required|string',
             'department_id' => 'nullable|exists:departments,id',
             'is_global' => 'boolean'
         ]);
 
         $cannedResponse = CannedResponse::create([
             'title' => $request->title,
-            'message' => $request->body,
+            'message' => $request->message,
             'type' => 'ticket',
-            'is_active' => true,
+            'is_active' => $request->has('is_active') ? 1 : 0,
             'created_by' => Auth::id(),
             'department_id' => $request->department_id,
             'is_global' => $request->has('is_global') ? 1 : 0
@@ -70,15 +70,15 @@ class CannedResponseController extends Controller
     {
         $request->validate([
             'title' => 'required|string|max:255',
-            'body' => 'required|string',
+            'message' => 'required|string',
             'department_id' => 'nullable|exists:departments,id',
             'is_global' => 'boolean'
         ]);
 
         $cannedResponse->update([
             'title' => $request->title,
-            'message' => $request->body,
-            'is_active' => true,
+            'message' => $request->message,
+            'is_active' => $request->has('is_active') ? 1 : 0,
             'department_id' => $request->department_id,
             'is_global' => $request->has('is_global') ? 1 : 0
         ]);

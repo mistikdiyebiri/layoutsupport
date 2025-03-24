@@ -30,13 +30,18 @@ class TicketController extends Controller
             $query->where('priority', $request->priority);
         }
 
+        // Departman filtresi
         if ($request->has('department') && $request->department != 'all') {
             $query->where('department_id', $request->department);
-        }
-
-        // Personel ise sadece kendi departmanına ait ticketları görsün
-        if (Auth::user()->hasRole('staff') && !Auth::user()->hasRole('admin')) {
-            $query->where('department_id', Auth::user()->department_id);
+        } else {
+            // Personel ise sadece kendi departmanına ait ticketları görsün
+            if (Auth::user()->hasRole('staff') && !Auth::user()->hasRole('admin')) {
+                // Personel departments ilişkisini kullanarak filtreleme yapabilir
+                $userDepartmentIds = Auth::user()->departments()->pluck('departments.id')->toArray();
+                if (!empty($userDepartmentIds)) {
+                    $query->whereIn('department_id', $userDepartmentIds);
+                }
+            }
         }
 
         $tickets = $query->orderBy('created_at', 'desc')->paginate(10);
@@ -137,8 +142,15 @@ class TicketController extends Controller
      */
     public function show(Ticket $ticket)
     {
+        $user = Auth::user();
+        
         // Kullanıcı bu ticket'ı görüntüleme yetkisine sahip mi kontrol et
-        if (!Auth::user()->hasRole(['admin', 'staff']) && $ticket->user_id !== Auth::id()) {
+        if ($user->hasRole('staff') && !$user->hasRole('admin')) {
+            // Personel her türlü ticketı görebilsin
+            // Gelecekte departman bazlı filtreleme eklenebilir
+        } 
+        elseif (!$user->hasRole(['admin', 'staff']) && $ticket->user_id !== $user->id) {
+            // Müşteri sadece kendi ticket'larını görüntüleyebilir
             abort(403, 'Bu ticket\'ı görüntüleme yetkiniz yok.');
         }
 
@@ -237,10 +249,19 @@ class TicketController extends Controller
                   ->orWhere('description', 'LIKE', "%{$query}%")
                   ->orWhere('ticket_id', 'LIKE', "%{$query}%");
             });
-            
-        // Personel ise sadece kendi departmanına ait ticketları görsün
-        if (Auth::user()->hasRole('staff') && !Auth::user()->hasRole('admin')) {
-            $ticketsQuery->where('department_id', Auth::user()->department_id);
+        
+        // Departman filtresi
+        if ($request->has('department') && $request->department != 'all') {
+            $ticketsQuery->where('department_id', $request->department);
+        } else {
+            // Personel ise sadece kendi departmanına ait ticketları görsün
+            if (Auth::user()->hasRole('staff') && !Auth::user()->hasRole('admin')) {
+                // Personel departments ilişkisini kullanarak filtreleme yapabilir
+                $userDepartmentIds = Auth::user()->departments()->pluck('departments.id')->toArray();
+                if (!empty($userDepartmentIds)) {
+                    $ticketsQuery->whereIn('department_id', $userDepartmentIds);
+                }
+            }
         }
         
         // Müşteri ise sadece kendi ticketlarını görsün
@@ -287,7 +308,11 @@ class TicketController extends Controller
 
         // Personel ise sadece kendi departmanına ait ticketları görsün
         if (Auth::user()->hasRole('staff') && !Auth::user()->hasRole('admin')) {
-            $query->where('department_id', Auth::user()->department_id);
+            // Personel departments ilişkisini kullanarak filtreleme yapabilir
+            $userDepartmentIds = Auth::user()->departments()->pluck('departments.id')->toArray();
+            if (!empty($userDepartmentIds)) {
+                $query->whereIn('department_id', $userDepartmentIds);
+            }
         }
         
         $tickets = $query->orderBy('created_at', 'desc')->get();
@@ -404,16 +429,59 @@ class TicketController extends Controller
     }
 
     /**
-     * Kullanıcıya atanan biletleri göster (Personel için)
-     *
-     * @return \Illuminate\View\View
+     * Personele atanan ticketları listele
      */
     public function assignedTickets(Request $request)
     {
+        // Request ve auth bilgilerini loglayalım
+        \Log::info('Start of assignedTickets method', [
+            'authenticated' => auth()->check(),
+            'auth_id' => auth()->check() ? auth()->id() : null,
+            'request_url' => $request->fullUrl(),
+            'request_method' => $request->method(),
+            'request_params' => $request->all(),
+            'request_ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+        
+        // Kimlik doğrulama kontrolü
+        if (!auth()->check()) {
+            \Log::warning('User not authenticated for assignedTickets');
+            return redirect()->route('login')->with('error', 'Bu sayfaya erişmek için giriş yapmalısınız.');
+        }
+        
         $user = auth()->user();
         
-        // Query oluştur
-        $query = Ticket::where('assigned_to', $user->id);
+        // Debug için
+        \Log::info('User auth info for assignedTickets', [
+            'user_id' => $user->id,
+            'user_email' => $user->email,
+            'user_name' => $user->name,
+            'user_roles' => $user->getRoleNames(),
+            'request_params' => $request->all()
+        ]);
+        
+        // Kullanıcının personel veya teknik destek rolüne sahip olup olmadığını kontrol et
+        if (!$user->hasRole(['staff', 'teknik destek', 'admin'])) {
+            \Log::warning('Unauthorized access to assignedTickets', [
+                'user_id' => $user->id,
+                'user_roles' => $user->getRoleNames()
+            ]);
+            
+            abort(403, 'Bu sayfaya erişim yetkiniz bulunmamaktadır.');
+        }
+        
+        // Query oluştur - staff_id parametresini kontrol et
+        if ($request->filled('staff_id')) {
+            $staffId = $request->staff_id;
+            \Log::info('Using staff_id from request', ['staff_id' => $staffId]);
+        } else {
+            $staffId = $user->id;
+            \Log::info('Using current user id as staff_id', ['staff_id' => $staffId]);
+        }
+        
+        // Sadece belirtilen personele atanan ticketları getir
+        $query = Ticket::where('assigned_to', $staffId);
         
         // Filtreleme işlemleri
         if ($request->filled('status')) {
@@ -433,17 +501,60 @@ class TicketController extends Controller
             });
         }
         
+        // Tarih aralığı filtreleme
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+        
         // Sıralama
         $sortField = $request->input('sort', 'created_at');
         $sortDirection = $request->input('direction', 'desc');
         $query->orderBy($sortField, $sortDirection);
         
-        // Sayfalama
-        $tickets = $query->with(['user', 'department', 'assignedTo'])
-                      ->paginate(15)
-                      ->appends($request->query());
-        
-        return view('staff.tickets.assigned', compact('tickets'));
+        try {
+            // Sayfalama
+            $tickets = $query->with(['user', 'department', 'assignedTo'])
+                          ->paginate(15)
+                          ->appends($request->query());
+            
+            \Log::info('Query results for assigned tickets', [
+                'count' => $tickets->count(),
+                'total' => $tickets->total(),
+                'current_page' => $tickets->currentPage(),
+                'last_page' => $tickets->lastPage()
+            ]);
+            
+            // İstatistik bilgileri
+            $stats = [
+                'total' => Ticket::where('assigned_to', $staffId)->count(),
+                'open' => Ticket::where('assigned_to', $staffId)->where('status', 'open')->count(),
+                'pending' => Ticket::where('assigned_to', $staffId)->where('status', 'pending')->count(),
+                'closed' => Ticket::where('assigned_to', $staffId)->where('status', 'closed')->count(),
+            ];
+            
+            \Log::info('Stats for assigned tickets', $stats);
+            
+            // View dosyasının varlığını kontrol et
+            $view = 'staff.tickets.assigned';
+            if (!view()->exists($view)) {
+                \Log::error('View not found', ['view' => $view]);
+                abort(500, 'Görünüm dosyası bulunamadı.');
+            }
+            
+            \Log::info('Successfully returning view for assigned tickets');
+            return view($view, compact('tickets', 'stats'));
+        } catch (\Exception $e) {
+            \Log::error('Error in assignedTickets method', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            abort(500, 'Bir hata oluştu: ' . $e->getMessage());
+        }
     }
 
     /**

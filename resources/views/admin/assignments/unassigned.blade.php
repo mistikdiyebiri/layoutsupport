@@ -75,7 +75,7 @@
                                     @foreach($staffUsers as $staff)
                                         <option value="{{ $staff->id }}">
                                             {{ $staff->name }} 
-                                            ({{ $staff->department->name ?? 'Departmansız' }})
+                                            ({{ $staff->primaryDepartment->name ?? 'Departmansız' }})
                                             - {{ $staff->assignedTickets()->whereIn('status', ['open', 'pending'])->count() }} aktif talep
                                         </option>
                                     @endforeach

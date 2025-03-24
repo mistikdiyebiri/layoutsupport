@@ -1,4 +1,6 @@
-@extends('layouts.app')
+@extends('layouts.admin')
+
+@section('title', 'Hazır Yanıt Oluştur')
 
 @section('content')
 <div class="container">
@@ -50,6 +52,28 @@
                         </div>
                         
                         <div class="form-group mb-3">
+                            <label for="department_id">Departman</label>
+                            <select name="department_id" id="department_id" class="form-control">
+                                <option value="">Departman Seçiniz</option>
+                                @foreach(\App\Models\Department::where('is_active', true)->orderBy('name')->get() as $department)
+                                    <option value="{{ $department->id }}" {{ old('department_id') == $department->id ? 'selected' : '' }}>
+                                        {{ $department->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <small class="form-text text-muted">Departman seçmezseniz, tüm departmanlara görünür olur.</small>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="is_global">Görünürlük:</label>
+                            <div class="form-check form-switch">
+                                <input type="checkbox" name="is_global" id="is_global" class="form-check-input" value="1" {{ old('is_global') ? 'checked' : '' }}>
+                                <label class="form-check-label" for="is_global">Tüm personele göster</label>
+                            </div>
+                            <small class="form-text text-muted">İşaretlenirse tüm personele görünür olur, işaretlenmezse sadece ilgili departmana görünür.</small>
+                        </div>
+                        
+                        <div class="form-group mb-3">
                             <label for="is_active">Durum:</label>
                             <div class="form-check form-switch">
                                 <input type="checkbox" name="is_active" id="is_active" class="form-check-input" value="1" {{ old('is_active', '1') ? 'checked' : '' }}>
@@ -75,42 +99,42 @@
                     <table class="table table-bordered">
                         <tbody>
                             <tr>
-                                <td><code>{{uygulama_adı}}</code></td>
+                                <td><code>&#123;&#123;uygulama_adı&#125;&#125;</code></td>
                                 <td>:</td>
                                 <td>Uygulama Adı</td>
                             </tr>
                             <tr>
-                                <td><code>{{site_url}}</code></td>
+                                <td><code>&#123;&#123;site_url&#125;&#125;</code></td>
                                 <td>:</td>
                                 <td>Site URL'si</td>
                             </tr>
                             <tr>
-                                <td><code>{{bilet_kimliği}}</code></td>
+                                <td><code>&#123;&#123;bilet_kimliği&#125;&#125;</code></td>
                                 <td>:</td>
                                 <td>Bilet Kimliği</td>
                             </tr>
                             <tr>
-                                <td><code>{{bilet_kullanıcısı}}</code></td>
+                                <td><code>&#123;&#123;bilet_kullanıcısı&#125;&#125;</code></td>
                                 <td>:</td>
                                 <td>Bilet açan Müşteri adı</td>
                             </tr>
                             <tr>
-                                <td><code>{{bilet_başlığı}}</code></td>
+                                <td><code>&#123;&#123;bilet_başlığı&#125;&#125;</code></td>
                                 <td>:</td>
                                 <td>Bilet Başlığı</td>
                             </tr>
                             <tr>
-                                <td><code>{{bilet_önceliği}}</code></td>
+                                <td><code>&#123;&#123;bilet_önceliği&#125;&#125;</code></td>
                                 <td>:</td>
                                 <td>Bilet Önceliği</td>
                             </tr>
                             <tr>
-                                <td><code>{{user_reply}}</code></td>
+                                <td><code>&#123;&#123;user_reply&#125;&#125;</code></td>
                                 <td>:</td>
                                 <td>Bilete cevap veren Çalışanın adı</td>
                             </tr>
                             <tr>
-                                <td><code>{{kullanıcı_rolü}}</code></td>
+                                <td><code>&#123;&#123;kullanıcı_rolü&#125;&#125;</code></td>
                                 <td>:</td>
                                 <td>Çalışanın Rolü</td>
                             </tr>
@@ -123,13 +147,22 @@
 </div>
 @endsection
 
-@section('scripts')
+@section('js')
 <script src="https://cdn.ckeditor.com/ckeditor5/40.0.0/classic/ckeditor.js"></script>
 <script>
-    ClassicEditor
-        .create(document.querySelector('#editor'))
-        .catch(error => {
-            console.error(error);
+    document.addEventListener('DOMContentLoaded', function() {
+        ClassicEditor
+            .create(document.querySelector('#editor'))
+            .catch(error => {
+                console.error('CKEditor yüklenirken hata oluştu:', error);
+            });
+
+        // Form submission listener for debugging
+        document.querySelector('form').addEventListener('submit', function(e) {
+            console.log('Form gönderiliyor...');
+            console.log('Title:', document.querySelector('#title').value);
+            console.log('Message:', document.querySelector('#editor').value);
         });
+    });
 </script>
 @endsection 

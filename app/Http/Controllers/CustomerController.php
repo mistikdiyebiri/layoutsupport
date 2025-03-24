@@ -31,7 +31,10 @@ class CustomerController extends Controller
      */
     public function create()
     {
-        return view('users.create');
+        // Müşteri oluşturma sayfasına bir başlık ekleyelim
+        $pageTitle = 'Yeni Müşteri Ekle';
+        $departments = Department::where('is_active', true)->get();
+        return view('users.create', compact('pageTitle', 'departments'));
     }
 
     /**

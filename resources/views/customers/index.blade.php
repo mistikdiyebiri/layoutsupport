@@ -86,7 +86,7 @@
                                 <span class="badge bg-info">{{ $role->name }}</span>
                             @endforeach
                         </td>
-                        <td>{{ $user->department->name ?? '-' }}</td>
+                        <td>{{ $user->primaryDepartment->name ?? '-' }}</td>
                         <td>
                             @if($user->shift_start && $user->shift_end)
                                 {{ \Carbon\Carbon::parse($user->shift_start)->format('H:i') }} - 
@@ -111,6 +111,17 @@
                                 <a href="{{ route('customers.show', $user) }}" class="btn btn-sm btn-info">
                                     <i class="fas fa-eye"></i>
                                 </a>
+                                
+                                @if(Auth::id() !== $user->id)
+                                <button type="button" class="btn btn-sm btn-danger delete-user" 
+                                    data-id="{{ $user->id }}" 
+                                    data-name="{{ $user->name }}"
+                                    data-tickets="{{ $user->assignedTickets->count() }}"
+                                    data-toggle="modal" 
+                                    data-target="#deleteUserModal">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -144,6 +155,35 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
                 <button type="button" class="btn btn-danger confirm-bulk-delete">Sil</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tekil Personel Silme Modal -->
+<div class="modal fade" id="deleteUserModal" tabindex="-1" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteUserModalLabel">Personel Sil</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p><span id="userName"></span> isimli personeli silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</p>
+                <div id="ticketWarning" class="alert alert-warning" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i> Bu personele atanmış <strong id="ticketCount"></strong> adet bilet bulunmaktadır. 
+                    Silme işlemi sonrası bu biletler atanmamış duruma getirilecektir.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <form id="deleteUserForm" method="POST" action="">
+                    @csrf
+                    @method('DELETE')
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-danger">Sil</button>
+                </form>
             </div>
         </div>
     </div>
@@ -264,6 +304,26 @@
             .catch(error => {
                 console.error('Error:', error);
                 alert('İşlem sırasında bir hata oluştu.');
+            });
+        });
+        
+        // Tekil silme modal işlemleri
+        document.querySelectorAll('.delete-user').forEach(button => {
+            button.addEventListener('click', function() {
+                const userId = this.getAttribute('data-id');
+                const userName = this.getAttribute('data-name');
+                const ticketCount = parseInt(this.getAttribute('data-tickets'), 10);
+                
+                document.getElementById('userName').textContent = userName;
+                document.getElementById('deleteUserForm').action = `/customers/${userId}`;
+                
+                // Eğer atanmış bilet varsa uyarı göster
+                if(ticketCount > 0) {
+                    document.getElementById('ticketWarning').style.display = 'block';
+                    document.getElementById('ticketCount').textContent = ticketCount;
+                } else {
+                    document.getElementById('ticketWarning').style.display = 'none';
+                }
             });
         });
     });

@@ -22,7 +22,9 @@ class TicketReply extends Model
         'ticket_id',
         'user_id',
         'is_staff_reply',
-        'replied_at'
+        'replied_at',
+        'is_private',
+        'body'
     ];
 
     /**
@@ -35,6 +37,7 @@ class TicketReply extends Model
         'updated_at' => 'datetime',
         'replied_at' => 'datetime',
         'is_staff_reply' => 'boolean',
+        'is_private' => 'boolean',
     ];
 
     /**

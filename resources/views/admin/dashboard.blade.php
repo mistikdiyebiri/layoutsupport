@@ -8,7 +8,7 @@
     <div class="col-lg-3 col-6">
         <div class="small-box bg-info">
             <div class="inner">
-                <h3>{{ $totalTicketCount }}</h3>
+                <h3>{{ $totalTickets }}</h3>
                 <p>Toplam Destek Talepleri</p>
             </div>
             <div class="icon">
@@ -21,7 +21,7 @@
     <div class="col-lg-3 col-6">
         <div class="small-box bg-success">
             <div class="inner">
-                <h3>{{ $totalClosedTicketCount }}</h3>
+                <h3>{{ $closedTickets }}</h3>
                 <p>Çözülmüş Talepler</p>
             </div>
             <div class="icon">
@@ -34,7 +34,7 @@
     <div class="col-lg-3 col-6">
         <div class="small-box bg-warning">
             <div class="inner">
-                <h3>{{ $totalOpenTicketCount + $totalPendingTicketCount }}</h3>
+                <h3>{{ $openTickets + $pendingTickets }}</h3>
                 <p>Bekleyen Talepler</p>
             </div>
             <div class="icon">

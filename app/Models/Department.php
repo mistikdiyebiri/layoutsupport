@@ -40,6 +40,14 @@ class Department extends Model
     }
 
     /**
+     * Bu departmana bağlı personelleri getir (primaryDepartment olarak)
+     */
+    public function primaryUsers()
+    {
+        return $this->hasMany(User::class, 'department_id');
+    }
+
+    /**
      * Get the tickets for the department.
      */
     public function tickets(): HasMany
